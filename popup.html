@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evidence Stamp Tool</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  
+  <div class="header-container">
+    <h2>Debug Evidence Tool</h2>
+    <a href="help.html" target="_blank" class="help-btn" title="ヘルプを開く">?</a>
+  </div>
+  
+  <div class="status-bar" id="statusText">Initializing...</div>
+
+  <div id="preview-container">
+    <div id="spinner" class="spinner"></div>
+    <span id="loadingMessage" class="loading-text">Collecting Logs...</span>
+    <img id="resultImage" alt="Evidence Screenshot">
+  </div>
+
+<div class="btn-group">
+    <button id="snapBtn">↺ Retry</button>
+    <button id="previewBtn" style="display:none;">🔍 Preview</button> 
+    <button id="downloadBtn" style="display:none;">💾 Save PNG</button>
+    <button id="copyBtn" style="display:none;">📋 Copy</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

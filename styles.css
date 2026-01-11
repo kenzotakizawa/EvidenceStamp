@@ -1,0 +1,164 @@
+/* =========================================
+   1. 設定エリア：画像生成(Canvas)の色設定
+   ※ JSがこの値を読み取って画像を生成します
+   ========================================= */
+:root {
+  /* Canvas描画用の色 */
+  --cv-bg-color: #121212;       /* 背景色（黒） */
+  --cv-panel-color: #1e1e1e;    /* パネル背景色 */
+  --cv-text-main: #ffffff;      /* メイン文字色 */
+  --cv-text-sub: #aaaaaa;       /* サブ文字色 */
+  --cv-accent: #00bcd4;         /* アクセントカラー（青） */
+  --cv-error: #ff5252;          /* エラー時の赤 */
+  --cv-success: #4caf50;        /* 正常時の緑 */
+  --cv-line: #333333;           /* 枠線の色 */
+  
+  /* Canvas描画用のフォント */
+  --cv-font-main: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --cv-font-code: Consolas, Monaco, monospace;
+}
+
+/* =========================================
+   2. UIデザイン（ポップアップ自体の見た目）
+   ========================================= */
+
+/* ポップアップ全体のサイズ固定（重要） */
+body {
+  width: 500px;           /* 幅を固定して横スクロールを防ぐ */
+  padding: 15px;
+  background-color: var(--cv-bg-color);
+  color: var(--cv-text-main);
+  font-family: sans-serif;
+  margin: 0;
+  box-sizing: border-box; /* パディングを含めたサイズ計算 */
+}
+
+/* ヘッダーレイアウト（タイトルとヘルプボタン） */
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 14px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ヘルプボタン（？）のデザイン */
+.help-btn {
+  text-decoration: none;
+  color: #666;
+  font-size: 14px;
+  font-weight: bold;
+  border: 1px solid #444;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.help-btn:hover {
+  color: var(--cv-bg-color);
+  background-color: var(--cv-accent);
+  border-color: var(--cv-accent);
+  box-shadow: 0 0 5px var(--cv-accent);
+}
+
+/* ステータスバー */
+.status-bar {
+  font-size: 12px;
+  color: var(--cv-accent);
+  margin-bottom: 10px;
+  height: 20px;
+}
+
+/* プレビューエリア（枠線） */
+#preview-container {
+  border: 1px solid var(--cv-line);
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 10px;
+}
+
+/* ★重要：画像がポップアップ幅を超えないようにする設定 */
+img#resultImage {
+  max-width: 100%;  /* これがないと画像が巨大化して横スクロールが出る */
+  height: auto;
+  display: none;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+/* ローディング表示 */
+.loading-text {
+  color: #666;
+  font-size: 12px;
+  margin-top: 10px;
+  display: none;
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #333;
+  border-top: 3px solid var(--cv-accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+  display: none;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ボタンエリア */
+.btn-group {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  flex: 1;
+  padding: 12px;
+  cursor: pointer;
+  background: #333;
+  color: white;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-weight: bold;
+  transition: 0.2s;
+}
+
+button:hover {
+  background: #444;
+  border-color: #777;
+}
+
+button#copyBtn {
+  background: var(--cv-accent);
+  border-color: var(--cv-accent);
+  color: #000;
+}
+
+button#copyBtn:hover {
+  background: #00acc1;
+}
+
+button#snapBtn {
+  display: none;
+}

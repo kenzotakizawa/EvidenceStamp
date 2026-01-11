@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Evidence Preview</title>
+    <style>
+        body {
+            background-color: #0d0d0d; /* 少し明るめの黒 */
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        img {
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            max-width: 95%; /* 画面からはみ出さない */
+            height: auto;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <img id="previewImg" alt="Loading evidence...">
+    <script src="preview.js"></script>
+</body>
+</html>
