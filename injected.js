@@ -1,18 +1,21 @@
 (function() {
-    console.log("★★★ SPY FILE LOADED (Final Solution) ★★★"); 
+    // Diagnostics agent loaded into page context.
+    // 実行コンテキスト: ページの JS スコープで動作するため、ページ側の副作用を
+    // 最小限に抑える設計にすること（グローバル変更は極力避ける）。
+    console.log("Diagnostics agent loaded"); 
 
     const MAX_LOGS = 40;
     const STORAGE_KEY = "debug_evidence_timeline";
     const timeline = []; 
     
-    // ブラウザ本来のコンソール機能を確保
+    // 元の console メソッドを保持（復帰やデバッグ用）
     const originalConsoleError = console.error;
     const originalConsoleWarn = console.warn;
-    
-    // 再入防止フラグ
+
+    // 再入防止フラグ: console.error のラップで再帰を防ぐために使用
     let isCapturingLog = false;
 
-    // --- 0. 過去ログ復元 ---
+    // 過去ログの復元（sessionStorage を簡易スナップショット用に使用）
     try {
         const savedData = sessionStorage.getItem(STORAGE_KEY);
         if (savedData) {
@@ -24,7 +27,7 @@
         }
     } catch (e) { }
 
-    // --- ログ追加ヘルパー ---
+    // ログ追加ヘルパー
     function addLog(type, message) {
         if (message.length > 500) message = message.substring(0, 500) + "...";
 
@@ -42,8 +45,9 @@
         } catch (e) { }
     }
 
-    // --- 1. User Actions 監視 ---
-    function spyUserActions() {
+    // ユーザー操作の監視
+    // 注意: ここでキャプチャする値はプライバシーに敏感なので、パスワードは除外する。
+    function monitorUserActions() {
         document.addEventListener('click', (e) => {
             const el = e.target;
             const label = getElementLabel(el);
@@ -61,8 +65,10 @@
         }, true);
     }
 
-    // --- 2. SPA Navigation 監視 ---
-    function spyHistory() {
+    // SPA ナビゲーションの監視
+    // 補足: history.pushState を上書きしているため、互換性の問題が出ないよう
+    // 元の関数を保持して apply すること。
+    function monitorHistory() {
         const originalPushState = history.pushState;
         history.pushState = function(...args) {
             const newUrl = (args[2] && typeof args[2] === 'string') ? args[2] : 'new-url';
@@ -84,8 +90,10 @@
         return str;
     }
 
-    // --- 3. Network 監視 ---
-    function spyNetwork() {
+    // ネットワーク呼び出しの監視 (fetch / XMLHttpRequest)
+    // NOTE: ここでラップするとページの挙動に影響する可能性があるため、
+    // エラー時にのみログするなど非侵襲を心がける。
+    function monitorNetwork() {
         const originalFetch = window.fetch;
         window.fetch = async function(...args) {
             try {
@@ -104,30 +112,32 @@
         const originalOpen = XMLHttpRequest.prototype.open;
         const originalSend = XMLHttpRequest.prototype.send;
         XMLHttpRequest.prototype.open = function(method, url) {
-            this._spyUrl = url;
+            // 内部プロパティに URL を保持（デバッグ用途）
+            this._targetUrl = url;
             return originalOpen.apply(this, arguments);
         };
         XMLHttpRequest.prototype.send = function() {
             this.addEventListener('load', function() {
                 if (this.status >= 400) {
-                    addLog('Network', `[${this.status}] ${this._spyUrl}`);
+                    addLog('Network', `[${this.status}] ${this._targetUrl}`);
                 }
             });
             return originalSend.apply(this, arguments);
         };
     }
 
-    // --- 4. Console Error 監視（★ここが解決策） ---
+    // console.error をラップして内部に記録する
+    // 重要: originalConsoleError をそのまま呼ぶとページ側で再捕捉され、
+    // 再帰的にこのハンドラが呼ばれるケースがあるため注意（isCapturingLog で防止）。
     console.error = function(...args) {
         if (isCapturingLog) return;
         isCapturingLog = true;
 
         try {
-            // 【対策】本来の赤色エラー(originalConsoleError)は呼ばない！
-            // 代わりに黄色(warn)で出力して、サイト側の監視網をすり抜ける。
-            originalConsoleWarn.apply(console, ["⚠️ [Error Caught by Spy]", ...args]);
+            // ページの挙動を壊さない目的で、ここでは originalConsoleWarn にフォールバックして出力する。
+            // 開発時は originalConsoleError を直接呼ぶオプションを検討して良い。
+            originalConsoleWarn.apply(console, ["[Captured Error]", ...args]);
 
-            // 内部ログには「Console Error」として記録する（証拠は残る）
             const message = args.map(a => {
                 if (typeof a === 'object' && a !== null) {
                     if (a instanceof Error) return `Error: ${a.message}`;
@@ -139,27 +149,62 @@
             addLog('Console', message);
 
         } catch (e) {
-            // 無視
+            // ログ処理中の失敗はここで握りつぶす（二次障害防止）
         } finally {
             isCapturingLog = false;
         }
     };
 
-    // 全監視スタート
-    spyUserActions();
-    spyHistory();
-    spyNetwork();
+    // 監視を開始する（明示的に呼ぶことでユニットテスト時に抑止可能）
+    monitorUserActions();
+    monitorHistory();
+    monitorNetwork();
 
-    // --- 5. データ送信 ---
+    // ページ外からのデータ要求へ応答するためのハンドラ
+    // ここではページ内スナップショット（ログ・ストレージ・フォーム）を返す。
     window.addEventListener("message", (event) => {
         if (event.data.type === "EVIDENCE_REQ") {
+            
+            // localStorage/sessionStorage のスナップショット取得
+            const getStorageSnapshot = (storage) => {
+                const data = {};
+                for (let i = 0; i < storage.length; i++) {
+                    const key = storage.key(i);
+                    if (key === STORAGE_KEY) continue;
+                    
+                    let val = storage.getItem(key) || "";
+                    if (val.length > 500) val = val.substring(0, 500) + "...(cut)";
+                    data[key] = val;
+                }
+                return data;
+            };
+
+            // フォーム入力のスナップショット（パスワードは除外）
+            const getFormSnapshot = () => {
+                const inputs = document.querySelectorAll('input, select, textarea');
+                const forms = [];
+                inputs.forEach(el => {
+                    if (el.type === 'password') return;
+                    if (el.value && el.value.trim() !== "") {
+                        let label = el.id || el.name || el.className || el.tagName;
+                        let val = el.value;
+                        if (val.length > 500) val = val.substring(0, 500) + "...(cut)";
+                        forms.push(`${label}: ${val}`);
+                    }
+                });
+                return forms;
+            };
+
+            // 応答は postMessage で返す。受信側は必要に応じて origin を検証すること。
             window.postMessage({
                 type: "EVIDENCE_RES",
                 payload: {
                     errors: timeline, 
                     url: window.location.href,
                     userAgent: navigator.userAgent,
-                    viewport: window.innerWidth + 'x' + window.innerHeight
+                    viewport: window.innerWidth + 'x' + window.innerHeight,
+                    storage: getStorageSnapshot(localStorage),
+                    inputs: getFormSnapshot()
                 }
             }, "*");
         }

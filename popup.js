@@ -1,3 +1,11 @@
+// popup.js
+// Controller 層: UI イベントと background/content コミュニケーションを扱う。
+// 中堅向けメモ: UI は軽量に保ち、重い処理（描画など）は renderer に委譲する。
+
+// タイムアウト時間 (ms)
+// 補足: 3秒は短めに設定。ネットワークやページの遅延がある場合は UX との兼ね合いで調整する。
+const TIMEOUT_MS = 3000;
+
 // --- DOM要素 ---
 const downloadBtn = document.getElementById('downloadBtn');
 const copyBtn = document.getElementById('copyBtn');
@@ -34,7 +42,7 @@ async function runEvidenceCapture() {
         const tab = tabs[0];
         
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("応答がありません (Timeout)")), 3000)
+            setTimeout(() => reject(new Error("応答がありません (Timeout)")), TIMEOUT_MS)
         );
 
         const sendPromise = new Promise((resolve, reject) => {
@@ -73,10 +81,11 @@ function captureAndRender(logs, windowId) {
         }
         const img = new Image();
         img.onload = () => {
-            try {
-                // 職人に依頼
-                finalDataUrl = renderer.render(img, logs);
-                showResult(finalDataUrl);
+                try {
+                    // 描画処理は外部の責務 (EvidenceRenderer) に委譲
+                    // 中堅向け: renderer.render は重い処理なので例外をハンドルする
+                    finalDataUrl = renderer.render(img, logs);
+                    showResult(finalDataUrl);
             } catch (renderError) {
                 handleError("描画エラー: " + renderError.message);
             }
