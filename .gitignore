@@ -1,4 +1,17 @@
 .DS_Store        
 node_modules/    
 key.js           
-.env
+.env# Mac system files
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editors
+.vscode/
+.idea/
+
+# Node (future proof)
+node_modules/
