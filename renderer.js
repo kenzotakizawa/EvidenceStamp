@@ -1,19 +1,17 @@
-// EvidenceRenderer: 入力データを画像に合成して DataURL を返す責務に限定する
 class EvidenceRenderer {
     constructor() {
         this.styles = this._loadStyles();
-        
         this.LAYOUT = {
-            PADDING: 24,           // 全体の余白
-            LINE_HEIGHT: 20,       // 行間
-            HEADER_HEIGHT: 80,     // タイトルエリアの高さ
-            PANEL_GAP: 15,         // パネル内のアイテム間隔
-            PANEL_PADDING_Y: 15,   // パネル内部の縦余白
-            PANEL_PADDING_X: 15,   // パネル内部の横余白
-            ACCENT_BAR_WIDTH: 4,   // アクセント棒の太さ
-            ACCENT_BAR_HEIGHT: 24, // アクセント棒の高さ
-            FOOTER_EXTRA: 40,      // フッターの予備スペース
-            MIN_PANEL_HEIGHT: 150  // パネルの最低高さ
+            PADDING: 24,
+            LINE_HEIGHT: 20,
+            HEADER_HEIGHT: 80,
+            PANEL_GAP: 15,
+            PANEL_PADDING_Y: 15,
+            PANEL_PADDING_X: 15,
+            ACCENT_BAR_WIDTH: 4,
+            ACCENT_BAR_HEIGHT: 24,
+            FOOTER_EXTRA: 40,
+            MIN_PANEL_HEIGHT: 150
         };
     }
 
@@ -42,35 +40,77 @@ class EvidenceRenderer {
         const s = this.styles;
         const L = this.LAYOUT;
 
-        const panelWidth = (img.width / 2) - (L.PADDING * 1.5);
-        
+        // パネル幅の計算（スマホなどの狭い画面に対応するため、最低幅を保証）
+        const minPanelWidth = 300; 
+        let panelWidth = (img.width / 2) - (L.PADDING * 1.5);
+        if (panelWidth < minPanelWidth) {
+            // 画像が狭すぎる場合は、パネル幅を画像幅全体に合わせる（シングルカラム化の準備）
+            // ※今回は簡易的に、幅計算の安全マージンだけ確保
+            panelWidth = Math.max(panelWidth, 100); 
+        }
+
         ctx.font = s.fontValue;
 
-        const urlLines = this._wrapText(ctx, data.url || "", panelWidth - 30);
-        const uaLines = this._wrapText(ctx, data.userAgent || "", panelWidth - 30);
-        const storageKeys = Object.keys(data.storage || {});
-        const inputLines = data.inputs || [];
+        // --- 1. データの正規化と折り返し計算 ---
+
+        // 汎用ヘルパー: データを文字列配列に変換して折り返す
+        const processLines = (inputData, isObject = false) => {
+            let lines = [];
+            if (!inputData) return lines;
+
+            if (isObject) {
+                // オブジェクト { key: val } の場合
+                Object.keys(inputData).forEach(k => {
+                    const val = inputData[k] !== null ? inputData[k] : 'null';
+                    const raw = `${k}: ${val}`;
+                    lines.push(...this._wrapText(ctx, raw, panelWidth - 30));
+                });
+            } else if (Array.isArray(inputData)) {
+                // 配列 ["text"] の場合
+                inputData.forEach(text => {
+                    lines.push(...this._wrapText(ctx, text, panelWidth - 30));
+                });
+            } else {
+                // 文字列の場合
+                lines.push(...this._wrapText(ctx, String(inputData), panelWidth - 30));
+            }
+            return lines;
+        };
+
+        const urlLines = processLines(data.url);
+        const uaLines = processLines(data.userAgent);
+        const vpLines = processLines(data.viewport); // ★修正: Viewportも折り返し計算対象に
         
-        // 左パネル高さを計算
-        let leftHeight = 0;
-        leftHeight += (1 + urlLines.length) * L.LINE_HEIGHT + L.PANEL_GAP;
-        leftHeight += (1 + uaLines.length) * L.LINE_HEIGHT + L.PANEL_GAP;
-        leftHeight += (1 + 1) * L.LINE_HEIGHT + L.PANEL_GAP; 
-        
-        // 追加情報（Storage/Inputs）の高さ加算
-        if (storageKeys.length > 0) {
-            leftHeight += (1 + storageKeys.length) * L.LINE_HEIGHT + L.PANEL_GAP;
-        }
-        if (inputLines.length > 0) {
-            leftHeight += (1 + inputLines.length) * L.LINE_HEIGHT + L.PANEL_GAP;
+        // Inputデータが配列でもオブジェクトでも対応できるように修正
+        let inputLines = [];
+        if (Array.isArray(data.inputs)) {
+            inputLines = processLines(data.inputs);
+        } else if (typeof data.inputs === 'object') {
+            inputLines = processLines(data.inputs, true);
         }
 
-        leftHeight += L.FOOTER_EXTRA;
+        const storageLines = processLines(data.storage, true);
 
-        // 右パネル（ログ）高さ計算
+        // --- 2. 左パネル高さ計算 ---
+        const calcHeight = (lineArrays) => {
+            let h = 0;
+            lineArrays.forEach(lines => {
+                if (lines.length > 0) {
+                    h += L.LINE_HEIGHT; // ラベル分
+                    h += lines.length * L.LINE_HEIGHT; // 値分
+                    h += L.PANEL_GAP;
+                }
+            });
+            return h;
+        };
+
+        let leftHeight = calcHeight([urlLines, uaLines, vpLines, storageLines, inputLines]) + L.FOOTER_EXTRA;
+
+        // --- 3. 右パネル高さ計算 ---
         let rightHeight = L.FOOTER_EXTRA;
         const timeline = data.errors || [];
-        
+        const rightLogLines = []; // 描画用に計算結果を保持
+
         if (timeline.length > 0) {
             timeline.forEach(item => {
                 const prefixMap = { 'Console': "[ERR] ", 'Network': "[NET] ", 'Action': "[ACT] " };
@@ -79,7 +119,10 @@ class EvidenceRenderer {
                 const fullText = `${prefix}${time} ${item.message}`;
                 
                 const lines = this._wrapText(ctx, fullText, panelWidth - 30);
-                rightHeight += (lines.length * L.LINE_HEIGHT) + 8;
+                // 色分け描画用に情報を保存
+                rightLogLines.push({ lines, type: item.type });
+                
+                rightHeight += (lines.length * L.LINE_HEIGHT) + 8; // +8はログ間のマージン
             });
         } else {
             rightHeight += 60;
@@ -88,7 +131,7 @@ class EvidenceRenderer {
         const maxPanelHeight = Math.max(leftHeight, rightHeight, L.MIN_PANEL_HEIGHT);
         const footerHeight = L.HEADER_HEIGHT + maxPanelHeight + L.PADDING;
 
-        // 描画実行
+        // --- 4. 描画開始 ---
         canvas.width = img.width;
         canvas.height = img.height + footerHeight;
 
@@ -100,59 +143,62 @@ class EvidenceRenderer {
 
         let y = img.height + L.PADDING;
 
-        // ヘッダー
+        // --- ヘッダー（スマホ対応修正） ---
         ctx.fillStyle = s.accent;
         ctx.fillRect(L.PADDING, y, L.ACCENT_BAR_WIDTH, L.ACCENT_BAR_HEIGHT);
         
         ctx.fillStyle = s.textMain;
-        ctx.font = s.fontMain;
         ctx.textBaseline = "top";
-        ctx.fillText("SYSTEM DIAGNOSTICS REPORT", L.PADDING + 15, y);
+
+        // タイトルのフォントサイズ調整
+        const titleText = "SYSTEM DIAGNOSTICS REPORT";
+        let titleSize = 24;
+        if (img.width < 500) titleSize = 18; // スマホ幅なら小さく
+        ctx.font = `bold ${titleSize}px ${s.fontMain.split(' ').pop()}`;
+        ctx.fillText(titleText, L.PADDING + 15, y);
         
+        // 日付の衝突回避
         const dateStr = new Date().toLocaleString();
-        const fontCode = getComputedStyle(document.body).getPropertyValue('--cv-font-code') || 'monospace';
-        ctx.font = "18px " + fontCode.trim();
-        
-        ctx.fillStyle = s.textSub;
+        const dateFontCode = getComputedStyle(document.body).getPropertyValue('--cv-font-code') || 'monospace';
+        ctx.font = "18px " + dateFontCode.trim();
         const dateWidth = ctx.measureText(dateStr).width;
-        ctx.fillText(dateStr, canvas.width - L.PADDING - dateWidth, y + 4);
+        
+        // 画面幅が十分ある場合のみ日付を表示
+        if (img.width > 500) {
+            ctx.fillStyle = s.textSub;
+            ctx.fillText(dateStr, canvas.width - L.PADDING - dateWidth, y + 4);
+        }
 
         y += 50; 
 
-        // 左パネル描画
+        // --- 左パネル描画 ---
         this._drawPanelBox(ctx, L.PADDING, y, panelWidth, maxPanelHeight);
         
         let ly = y + L.PANEL_PADDING_Y;
         let lx = L.PADDING + L.PANEL_PADDING_X;
         
-        this._drawLabelValue(ctx, "TARGET URL:", urlLines, lx, ly, L.LINE_HEIGHT);
-        ly += (urlLines.length + 1) * L.LINE_HEIGHT + L.PANEL_GAP;
+        // ヘルパー関数で順次描画
+        const drawSection = (label, lines) => {
+            if (lines.length === 0) return;
+            this._drawLabelValue(ctx, label, lines, lx, ly, L.LINE_HEIGHT);
+            ly += (lines.length + 1) * L.LINE_HEIGHT + L.PANEL_GAP;
+        };
 
-        this._drawLabelValue(ctx, "BROWSER / OS:", uaLines, lx, ly, L.LINE_HEIGHT);
-        ly += (uaLines.length + 1) * L.LINE_HEIGHT + L.PANEL_GAP;
+        drawSection("TARGET URL:", urlLines);
+        drawSection("BROWSER / OS:", uaLines);
+        drawSection("VIEWPORT:", vpLines);
+        drawSection("LOCAL STORAGE:", storageLines);
+        drawSection("INPUT VALUES:", inputLines);
 
-        this._drawLabelValue(ctx, "VIEWPORT:", [data.viewport], lx, ly, L.LINE_HEIGHT);
-        ly += (1 + 1) * L.LINE_HEIGHT + L.PANEL_GAP;
-
-        // Storage情報の描画
-        if (storageKeys.length > 0) {
-            const storageLines = storageKeys.map(k => `${k}: ${data.storage[k]}`);
-            this._drawLabelValue(ctx, "LOCAL STORAGE:", storageLines, lx, ly, L.LINE_HEIGHT);
-            ly += (storageLines.length + 1) * L.LINE_HEIGHT + L.PANEL_GAP;
-        }
-
-        // 入力データの描画
-        if (inputLines.length > 0) {
-            this._drawLabelValue(ctx, "INPUT VALUES:", inputLines, lx, ly, L.LINE_HEIGHT);
-            ly += (inputLines.length + 1) * L.LINE_HEIGHT + L.PANEL_GAP;
-        }
-
-        // 右パネル
+        // --- 右パネル描画 ---
         const rightX = L.PADDING + panelWidth + L.PADDING;
-        this._drawPanelBox(ctx, rightX, y, panelWidth, maxPanelHeight);
+        // 右パネルが画面外にはみ出る場合は描画位置調整（超狭い画面対策）
+        const safeRightX = (rightX + panelWidth > canvas.width) ? (canvas.width - panelWidth - L.PADDING) : rightX;
+        
+        this._drawPanelBox(ctx, safeRightX, y, panelWidth, maxPanelHeight);
 
         let ry = y + L.PANEL_PADDING_Y;
-        let rx = rightX + L.PANEL_PADDING_X;
+        let rx = safeRightX + L.PANEL_PADDING_X;
         const hasError = timeline.some(t => t.type === 'Console' || t.type === 'Network');
 
         ctx.font = "bold 16px sans-serif";
@@ -167,21 +213,16 @@ class EvidenceRenderer {
 
         ctx.font = s.fontValue;
 
-        if (timeline.length > 0) {
-            timeline.forEach(item => {
+        if (rightLogLines.length > 0) {
+            rightLogLines.forEach(item => {
                 let logColor = s.textMain;
-                let prefix = "";
-                if (item.type === 'Console') { logColor = s.error; prefix = "[ERR] "; }
-                else if (item.type === 'Network') { logColor = s.logNetwork; prefix = "[NET] "; }
-                else if (item.type === 'Action') { logColor = s.logAction; prefix = "[ACT] "; }
+                if (item.type === 'Console') logColor = s.error;
+                else if (item.type === 'Network') logColor = s.logNetwork;
+                else if (item.type === 'Action') logColor = s.logAction;
 
                 ctx.fillStyle = logColor;
-                const time = item.time ? item.time.split('T')[1].split('.')[0] : "";
-                const fullText = `${prefix}${time} ${item.message}`;
                 
-                const lines = this._wrapText(ctx, fullText, panelWidth - 30);
-                
-                lines.forEach(line => {
+                item.lines.forEach(line => {
                     ctx.fillText(line, rx, ry);
                     ry += L.LINE_HEIGHT;
                 });
@@ -217,7 +258,11 @@ class EvidenceRenderer {
     }
 
     _wrapText(ctx, text, maxWidth) {
-        const words = String(text).split('');
+        // null/undefined対策
+        if (text === null || text === undefined) return [""];
+        
+        const str = String(text);
+        const words = str.split(''); // 日本語も考慮して1文字ずつ分割
         let lines = [];
         let currentLine = words[0] || "";
 
