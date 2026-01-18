@@ -41,12 +41,12 @@ class EvidenceRenderer {
         const L = this.LAYOUT;
 
         // パネル幅の計算（スマホなどの狭い画面に対応するため、最低幅を保証）
-        const minPanelWidth = 300; 
+        const minPanelWidth = 300;
         let panelWidth = (img.width / 2) - (L.PADDING * 1.5);
         if (panelWidth < minPanelWidth) {
             // 画像が狭すぎる場合は、パネル幅を画像幅全体に合わせる（シングルカラム化の準備）
             // ※今回は簡易的に、幅計算の安全マージンだけ確保
-            panelWidth = Math.max(panelWidth, 100); 
+            panelWidth = Math.max(panelWidth, 100);
         }
 
         ctx.font = s.fontValue;
@@ -80,7 +80,7 @@ class EvidenceRenderer {
         const urlLines = processLines(data.url);
         const uaLines = processLines(data.userAgent);
         const vpLines = processLines(data.viewport); // ★修正: Viewportも折り返し計算対象に
-        
+
         // Inputデータが配列でもオブジェクトでも対応できるように修正
         let inputLines = [];
         if (Array.isArray(data.inputs)) {
@@ -117,11 +117,11 @@ class EvidenceRenderer {
                 const prefix = prefixMap[item.type] || "";
                 const time = item.time ? new Date(item.time).toLocaleTimeString([], { hour12: false }) : "";
                 const fullText = `${prefix}${time} ${item.message}`;
-                
+
                 const lines = this._wrapText(ctx, fullText, panelWidth - 30);
                 // 色分け描画用に情報を保存
                 rightLogLines.push({ lines, type: item.type });
-                
+
                 rightHeight += (lines.length * L.LINE_HEIGHT) + 8; // +8はログ間のマージン
             });
         } else {
@@ -146,37 +146,37 @@ class EvidenceRenderer {
         // --- ヘッダー（スマホ対応修正） ---
         ctx.fillStyle = s.accent;
         ctx.fillRect(L.PADDING, y, L.ACCENT_BAR_WIDTH, L.ACCENT_BAR_HEIGHT);
-        
+
         ctx.fillStyle = s.textMain;
         ctx.textBaseline = "top";
 
         // タイトルのフォントサイズ調整
-        const titleText = "SYSTEM DIAGNOSTICS REPORT";
+        const titleText = chrome.i18n.getMessage("reportTitle");
         let titleSize = 24;
         if (img.width < 500) titleSize = 18; // スマホ幅なら小さく
         ctx.font = `bold ${titleSize}px ${s.fontMain.split(' ').pop()}`;
         ctx.fillText(titleText, L.PADDING + 15, y);
-        
+
         // 日付の衝突回避
         const dateStr = new Date().toLocaleString();
         const dateFontCode = getComputedStyle(document.body).getPropertyValue('--cv-font-code') || 'monospace';
         ctx.font = "18px " + dateFontCode.trim();
         const dateWidth = ctx.measureText(dateStr).width;
-        
+
         // 画面幅が十分ある場合のみ日付を表示
         if (img.width > 500) {
             ctx.fillStyle = s.textSub;
             ctx.fillText(dateStr, canvas.width - L.PADDING - dateWidth, y + 4);
         }
 
-        y += 50; 
+        y += 50;
 
         // --- 左パネル描画 ---
         this._drawPanelBox(ctx, L.PADDING, y, panelWidth, maxPanelHeight);
-        
+
         let ly = y + L.PANEL_PADDING_Y;
         let lx = L.PADDING + L.PANEL_PADDING_X;
-        
+
         // ヘルパー関数で順次描画
         const drawSection = (label, lines) => {
             if (lines.length === 0) return;
@@ -184,17 +184,17 @@ class EvidenceRenderer {
             ly += (lines.length + 1) * L.LINE_HEIGHT + L.PANEL_GAP;
         };
 
-        drawSection("TARGET URL:", urlLines);
-        drawSection("BROWSER / OS:", uaLines);
-        drawSection("VIEWPORT:", vpLines);
-        drawSection("LOCAL STORAGE:", storageLines);
-        drawSection("INPUT VALUES:", inputLines);
+        drawSection(chrome.i18n.getMessage("labelUrl"), urlLines);
+        drawSection(chrome.i18n.getMessage("labelUA"), uaLines);
+        drawSection(chrome.i18n.getMessage("labelViewport"), vpLines);
+        drawSection(chrome.i18n.getMessage("labelStorage"), storageLines);
+        drawSection(chrome.i18n.getMessage("labelInputs"), inputLines);
 
         // --- 右パネル描画 ---
         const rightX = L.PADDING + panelWidth + L.PADDING;
         // 右パネルが画面外にはみ出る場合は描画位置調整（超狭い画面対策）
         const safeRightX = (rightX + panelWidth > canvas.width) ? (canvas.width - panelWidth - L.PADDING) : rightX;
-        
+
         this._drawPanelBox(ctx, safeRightX, y, panelWidth, maxPanelHeight);
 
         let ry = y + L.PANEL_PADDING_Y;
@@ -204,10 +204,10 @@ class EvidenceRenderer {
         ctx.font = "bold 16px sans-serif";
         if (hasError) {
             ctx.fillStyle = s.error;
-            ctx.fillText(`⚠ DETECTED ISSUES (${timeline.length})`, rx, ry);
+            ctx.fillText(chrome.i18n.getMessage("issuesDetected", [String(timeline.length)]), rx, ry);
         } else {
             ctx.fillStyle = s.success;
-            ctx.fillText("✔ NO ERRORS (Actions Only)", rx, ry);
+            ctx.fillText(chrome.i18n.getMessage("noErrors"), rx, ry);
         }
         ry += 30;
 
@@ -221,7 +221,7 @@ class EvidenceRenderer {
                 else if (item.type === 'Action') logColor = s.logAction;
 
                 ctx.fillStyle = logColor;
-                
+
                 item.lines.forEach(line => {
                     ctx.fillText(line, rx, ry);
                     ry += L.LINE_HEIGHT;
@@ -230,7 +230,7 @@ class EvidenceRenderer {
             });
         } else {
             ctx.fillStyle = "#666";
-            ctx.fillText("No logs captured yet.", rx, ry);
+            ctx.fillText(chrome.i18n.getMessage("noLogs"), rx, ry);
         }
 
         return canvas.toDataURL("image/png");
@@ -260,7 +260,7 @@ class EvidenceRenderer {
     _wrapText(ctx, text, maxWidth) {
         // null/undefined対策
         if (text === null || text === undefined) return [""];
-        
+
         const str = String(text);
         const words = str.split(''); // 日本語も考慮して1文字ずつ分割
         let lines = [];

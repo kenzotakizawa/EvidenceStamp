@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,23 +9,23 @@
 <body>
   
   <div class="header-container">
-    <h2>Debug Evidence Tool</h2>
-    <a href="help.html" target="_blank" class="help-btn" title="ヘルプを開く">?</a>
+    <h2 data-i18n="popupTitle">Debug Evidence Tool</h2>
+    <a href="help.html" target="_blank" class="help-btn" data-i18n-title="helpTooltip">?</a>
   </div>
   
-  <div class="status-bar" id="statusText">Initializing...</div>
+  <div class="status-bar" id="statusText" data-i18n="statusInitializing">Initializing...</div>
 
   <div id="preview-container">
     <div id="spinner" class="spinner"></div>
-    <span id="loadingMessage" class="loading-text">Collecting Logs...</span>
+    <span id="loadingMessage" class="loading-text" data-i18n="loadingLogs">Collecting Logs...</span>
     <img id="resultImage" alt="Evidence Screenshot">
   </div>
 
 <div class="btn-group">
-    <button id="snapBtn">↺ Retry</button>
-    <button id="previewBtn" style="display:none;">🔍 Preview</button> 
-    <button id="downloadBtn" style="display:none;">💾 Save PNG</button>
-    <button id="copyBtn" style="display:none;">📋 Copy</button>
+    <button id="snapBtn" data-i18n="btnRetry">↺ Retry</button>
+    <button id="previewBtn" style="display:none;" data-i18n="btnPreview">🔍 Preview</button> 
+    <button id="downloadBtn" style="display:none;" data-i18n="btnSave">💾 Save PNG</button>
+    <button id="copyBtn" style="display:none;" data-i18n="btnCopy">📋 Copy</button>
   </div>
 
   <script src="renderer.js"></script>

@@ -1,0 +1,143 @@
+{
+    "appName": {
+        "message": "Evidence Stamp",
+        "description": "The name of the extension"
+    },
+    "appDescription": {
+        "message": "Debug Screenshot Tool with Action Logs",
+        "description": "The description of the extension"
+    },
+    "commandDescription": {
+        "message": "Start Evidence Capture Tool",
+        "description": "Description for the keyboard shortcut"
+    },
+    "popupTitle": {
+        "message": "Debug Evidence Tool",
+        "description": "Title in the popup"
+    },
+    "statusInitializing": {
+        "message": "Initializing...",
+        "description": "Status text when starting"
+    },
+    "statusConnecting": {
+        "message": "Connecting to page...",
+        "description": "Status text when connecting to content script"
+    },
+    "statusCapturing": {
+        "message": "Capturing screen...",
+        "description": "Status text during screen capture"
+    },
+    "statusProcessing": {
+        "message": "Processing image...",
+        "description": "Status text during image processing"
+    },
+    "statusReady": {
+        "message": "Ready",
+        "description": "Status text when done"
+    },
+    "statusError": {
+        "message": "Error",
+        "description": "Status text when an error occurs"
+    },
+    "loadingLogs": {
+        "message": "Collecting Logs...",
+        "description": "Loading text"
+    },
+    "btnRetry": {
+        "message": "↺ Retry",
+        "description": "Retry button text"
+    },
+    "btnPreview": {
+        "message": "🔍 Preview",
+        "description": "Preview button text"
+    },
+    "btnSave": {
+        "message": "💾 Save PNG",
+        "description": "Save button text"
+    },
+    "btnCopy": {
+        "message": "📋 Copy",
+        "description": "Copy button text"
+    },
+    "btnCopied": {
+        "message": "✅ Copied",
+        "description": "Copied button text state"
+    },
+    "errorTabNotFound": {
+        "message": "Target tab not found",
+        "description": "Error message"
+    },
+    "errorNoResponse": {
+        "message": "No response (Timeout)",
+        "description": "Error message"
+    },
+    "errorEmptyResponse": {
+        "message": "Received empty response",
+        "description": "Error message"
+    },
+    "errorReloadPage": {
+        "message": "Please reload the page\n(Content Script not loaded)",
+        "description": "Error message for missing content script"
+    },
+    "errorCaptureFailed": {
+        "message": "Capture failed: ",
+        "description": "Error message prefix"
+    },
+    "errorRenderFailed": {
+        "message": "Render error: ",
+        "description": "Error message prefix"
+    },
+    "reportTitle": {
+        "message": "SYSTEM DIAGNOSTICS REPORT",
+        "description": "Report title in the image"
+    },
+    "labelUrl": {
+        "message": "TARGET URL:",
+        "description": "Label in image"
+    },
+    "labelUA": {
+        "message": "BROWSER / OS:",
+        "description": "Label in image"
+    },
+    "labelViewport": {
+        "message": "VIEWPORT:",
+        "description": "Label in image"
+    },
+    "labelStorage": {
+        "message": "LOCAL STORAGE:",
+        "description": "Label in image"
+    },
+    "labelInputs": {
+        "message": "INPUT VALUES:",
+        "description": "Label in image"
+    },
+    "issuesDetected": {
+        "message": "⚠ DETECTED ISSUES ($COUNT$)",
+        "description": "Issues header in image",
+        "placeholders": {
+            "count": {
+                "content": "$1"
+            }
+        }
+    },
+    "noErrors": {
+        "message": "✔ NO ERRORS (Actions Only)",
+        "description": "No errors header in image"
+    },
+    "noLogs": {
+        "message": "No logs captured yet.",
+        "description": "Placeholder text in image"
+    },
+    "helpTooltip": {
+        "message": "Open Help",
+        "description": "Tooltip for help button"
+    },
+    "errorNoPreviewData": {
+        "message": "Failed to load image. Please capture again.",
+        "description": "Error message in preview page"
+    },
+    "previewTitle": {
+        "message": "Evidence Preview",
+        "description": "Title of the preview page"
+    }
+}

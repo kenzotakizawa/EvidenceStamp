@@ -1,13 +1,13 @@
-(function() {
+(function () {
     // Diagnostics agent loaded into page context.
     // 実行コンテキスト: ページの JS スコープで動作するため、ページ側の副作用を
     // 最小限に抑える設計にすること（グローバル変更は極力避ける）。
-    console.log("Diagnostics agent loaded"); 
+    console.log("Diagnostics agent loaded");
 
     const MAX_LOGS = 40;
     const STORAGE_KEY = "debug_evidence_timeline";
-    const timeline = []; 
-    
+    const timeline = [];
+
     // 元の console メソッドを保持（復帰やデバッグ用）
     const originalConsoleError = console.error;
     const originalConsoleWarn = console.warn;
@@ -70,7 +70,7 @@
     // 元の関数を保持して apply すること。
     function monitorHistory() {
         const originalPushState = history.pushState;
-        history.pushState = function(...args) {
+        history.pushState = function (...args) {
             const newUrl = (args[2] && typeof args[2] === 'string') ? args[2] : 'new-url';
             addLog('Action', `--- SPA Nav: ${newUrl} ---`);
             return originalPushState.apply(this, args);
@@ -81,13 +81,44 @@
     }
 
     function getElementLabel(el) {
-        let str = el.tagName.toLowerCase();
-        if (el.id) str += `#${el.id}`;
-        if (el.className && typeof el.className === 'string') {
-            const classes = el.className.split(' ').filter(c => c.trim().length > 0);
-            if (classes.length > 0) str += `.${classes.join('.')}`;
-        }
-        return str;
+        if (!el) return "unknown";
+        const tag = el.tagName.toLowerCase();
+
+        // 単体要素の最も有力な識別子を特定する
+        const getBaseSelector = (target) => {
+            const testId = target.getAttribute('data-testid') || target.getAttribute('data-cy') || target.getAttribute('data-qa');
+            if (testId) return `[testid="${testId}"]`;
+            if (target.name) return `${target.tagName.toLowerCase()}[name="${target.name}"]`;
+
+            const aria = target.getAttribute('aria-label') || target.getAttribute('role');
+            if (aria) return `${target.tagName.toLowerCase()}[${aria}]`;
+
+            if (target.id) return `#${target.id}`;
+
+            let sel = target.tagName.toLowerCase();
+            if (target.className && typeof target.className === 'string') {
+                const classes = target.className.split(' ').filter(c => c.trim().length > 0).slice(0, 2);
+                if (classes.length > 0) sel += `.${classes.join('.')}`;
+            }
+            return sel;
+        };
+
+        // 親要素のコンテキスト（IDやTestIDを持つ直近の親）を探す
+        const getParentLabel = (target) => {
+            let p = target.parentElement;
+            while (p && p !== document.body) {
+                const pTestId = p.getAttribute('data-testid') || p.getAttribute('data-cy');
+                if (pTestId) return `[testid="${pTestId}"]`;
+                if (p.id && !p.id.includes('__')) return `#${p.id}`; // 自動生成っぽくないIDを優先
+                p = p.parentElement;
+            }
+            return "";
+        };
+
+        const base = getBaseSelector(el);
+        const parent = getParentLabel(el);
+
+        return parent ? `${parent} > ${base}` : base;
     }
 
     // ネットワーク呼び出しの監視 (fetch / XMLHttpRequest)
@@ -95,7 +126,7 @@
     // エラー時にのみログするなど非侵襲を心がける。
     function monitorNetwork() {
         const originalFetch = window.fetch;
-        window.fetch = async function(...args) {
+        window.fetch = async function (...args) {
             try {
                 const response = await originalFetch.apply(this, args);
                 if (!response.ok) {
@@ -111,13 +142,13 @@
 
         const originalOpen = XMLHttpRequest.prototype.open;
         const originalSend = XMLHttpRequest.prototype.send;
-        XMLHttpRequest.prototype.open = function(method, url) {
+        XMLHttpRequest.prototype.open = function (method, url) {
             // 内部プロパティに URL を保持（デバッグ用途）
             this._targetUrl = url;
             return originalOpen.apply(this, arguments);
         };
-        XMLHttpRequest.prototype.send = function() {
-            this.addEventListener('load', function() {
+        XMLHttpRequest.prototype.send = function () {
+            this.addEventListener('load', function () {
                 if (this.status >= 400) {
                     addLog('Network', `[${this.status}] ${this._targetUrl}`);
                 }
@@ -129,7 +160,7 @@
     // console.error をラップして内部に記録する
     // 重要: originalConsoleError をそのまま呼ぶとページ側で再捕捉され、
     // 再帰的にこのハンドラが呼ばれるケースがあるため注意（isCapturingLog で防止）。
-    console.error = function(...args) {
+    console.error = function (...args) {
         if (isCapturingLog) return;
         isCapturingLog = true;
 
@@ -164,14 +195,14 @@
     // ここではページ内スナップショット（ログ・ストレージ・フォーム）を返す。
     window.addEventListener("message", (event) => {
         if (event.data.type === "EVIDENCE_REQ") {
-            
+
             // localStorage/sessionStorage のスナップショット取得
             const getStorageSnapshot = (storage) => {
                 const data = {};
                 for (let i = 0; i < storage.length; i++) {
                     const key = storage.key(i);
                     if (key === STORAGE_KEY) continue;
-                    
+
                     let val = storage.getItem(key) || "";
                     if (val.length > 500) val = val.substring(0, 500) + "...(cut)";
                     data[key] = val;
@@ -199,7 +230,7 @@
             window.postMessage({
                 type: "EVIDENCE_RES",
                 payload: {
-                    errors: timeline, 
+                    errors: timeline,
                     url: window.location.href,
                     userAgent: navigator.userAgent,
                     viewport: window.innerWidth + 'x' + window.innerHeight,

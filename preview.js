@@ -3,6 +3,8 @@ chrome.storage.local.get("previewData", (result) => {
     if (result.previewData) {
         document.getElementById("previewImg").src = result.previewData;
     } else {
-        alert("画像の読み込みに失敗しました。もう一度撮影してください。");
+        alert(chrome.i18n.getMessage("errorNoPreviewData"));
     }
 });
+
+document.title = chrome.i18n.getMessage("previewTitle");

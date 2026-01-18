@@ -1,0 +1,143 @@
+{
+    "appName": {
+        "message": "Evidence Stamp -エンジニアが欲しいスクショ撮影アプリ-",
+        "description": "拡張機能の名前"
+    },
+    "appDescription": {
+        "message": "操作ログ付きデバッグスクリーンショットツール",
+        "description": "拡張機能の説明"
+    },
+    "commandDescription": {
+        "message": "証拠保全ツールを起動",
+        "description": "キーボードショートカットの説明"
+    },
+    "popupTitle": {
+        "message": "デバッグ証拠保全ツール",
+        "description": "ポップアップのタイトル"
+    },
+    "statusInitializing": {
+        "message": "初期化中...",
+        "description": "開始時のステータス"
+    },
+    "statusConnecting": {
+        "message": "ページに接続中...",
+        "description": "コンテンツスクリプトへの接続中"
+    },
+    "statusCapturing": {
+        "message": "画面をキャプチャ中...",
+        "description": "画面キャプチャ中"
+    },
+    "statusProcessing": {
+        "message": "画像を処理中...",
+        "description": "画像処理中"
+    },
+    "statusReady": {
+        "message": "準備完了",
+        "description": "完了時"
+    },
+    "statusError": {
+        "message": "エラー",
+        "description": "エラー発生時"
+    },
+    "loadingLogs": {
+        "message": "ログを収集中...",
+        "description": "読み込み中テキスト"
+    },
+    "btnRetry": {
+        "message": "↺ 再試行",
+        "description": "再試行ボタン"
+    },
+    "btnPreview": {
+        "message": "🔍 プレビュー",
+        "description": "プレビューボタン"
+    },
+    "btnSave": {
+        "message": "💾 保存 (PNG)",
+        "description": "保存ボタン"
+    },
+    "btnCopy": {
+        "message": "📋 コピー",
+        "description": "コピーボタン"
+    },
+    "btnCopied": {
+        "message": "✅ コピー完了",
+        "description": "コピー完了状態"
+    },
+    "errorTabNotFound": {
+        "message": "対象のタブが見つかりません",
+        "description": "エラーメッセージ"
+    },
+    "errorNoResponse": {
+        "message": "応答がありません (タイムアウト)",
+        "description": "エラーメッセージ"
+    },
+    "errorEmptyResponse": {
+        "message": "空の応答が返ってきました",
+        "description": "エラーメッセージ"
+    },
+    "errorReloadPage": {
+        "message": "ページをリロードしてください\n(Content Script未ロード)",
+        "description": "コンテンツスクリプト未ロード時のエラー"
+    },
+    "errorCaptureFailed": {
+        "message": "撮影失敗: ",
+        "description": "エラーメッセージの接頭辞"
+    },
+    "errorRenderFailed": {
+        "message": "描画エラー: ",
+        "description": "エラーメッセージの接頭辞"
+    },
+    "reportTitle": {
+        "message": "システム診断レポート",
+        "description": "画像内のタイトル"
+    },
+    "labelUrl": {
+        "message": "対象URL:",
+        "description": "画像内のラベル"
+    },
+    "labelUA": {
+        "message": "ブラウザ / OS:",
+        "description": "画像内のラベル"
+    },
+    "labelViewport": {
+        "message": "ビューポート:",
+        "description": "画像内のラベル"
+    },
+    "labelStorage": {
+        "message": "ローカルストレージ:",
+        "description": "画像内のラベル"
+    },
+    "labelInputs": {
+        "message": "入力値:",
+        "description": "画像内のラベル"
+    },
+    "issuesDetected": {
+        "message": "⚠ 問題を検出 ($COUNT$)",
+        "description": "画像内の問題ヘッダー",
+        "placeholders": {
+            "count": {
+                "content": "$1"
+            }
+        }
+    },
+    "noErrors": {
+        "message": "✔ エラーなし (操作ログのみ)",
+        "description": "画像内の正常ヘッダー"
+    },
+    "noLogs": {
+        "message": "ログはまだ記録されていません。",
+        "description": "画像内のプレースホルダー"
+    },
+    "helpTooltip": {
+        "message": "ヘルプを開く",
+        "description": "ヘルプボタンのツールチップ"
+    },
+    "errorNoPreviewData": {
+        "message": "画像の読み込みに失敗しました。もう一度撮影してください。",
+        "description": "プレビューページのエラーメッセージ"
+    },
+    "previewTitle": {
+        "message": "証拠プレビュー",
+        "description": "プレビューページのタイトル"
+    }
+}
