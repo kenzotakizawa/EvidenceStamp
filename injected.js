@@ -31,13 +31,26 @@
     function addLog(type, message) {
         if (message.length > 500) message = message.substring(0, 500) + "...";
 
-        const newItem = {
-            type: type,
-            message: message,
-            time: new Date().toISOString()
-        };
+        // 同一アクションの集約ロジック
+        const lastItem = timeline[timeline.length - 1];
+        if (lastItem && lastItem.type === type && lastItem.message.startsWith(message)) {
+            // 前回のメッセージに "(xN)" とついているか、あるいはメッセージ自体が同じ場合
+            const match = lastItem.message.match(/\(x(\d+)\)$/);
+            if (match) {
+                const count = parseInt(match[1]) + 1;
+                lastItem.message = `${message} (x${count})`;
+                lastItem.time = new Date().toISOString(); // 時刻を最新に更新
+            } else if (lastItem.message === message) {
+                lastItem.message = `${message} (x2)`;
+                lastItem.time = new Date().toISOString();
+            } else {
+                // メッセージが完全一致しない（集約対象外）場合は新規追加へ
+                createNewLogItem(type, message);
+            }
+        } else {
+            createNewLogItem(type, message);
+        }
 
-        timeline.push(newItem);
         if (timeline.length > MAX_LOGS) timeline.shift();
 
         try {
@@ -45,13 +58,21 @@
         } catch (e) { }
     }
 
+    function createNewLogItem(type, message) {
+        const newItem = {
+            type: type,
+            message: message,
+            time: new Date().toISOString()
+        };
+        timeline.push(newItem);
+    }
+
     // ユーザー操作の監視
-    // 注意: ここでキャプチャする値はプライバシーに敏感なので、パスワードは除外する。
     function monitorUserActions() {
         document.addEventListener('click', (e) => {
             const el = e.target;
             const label = getElementLabel(el);
-            const text = (el.innerText || el.value || "").substring(0, 20).replace(/\n/g, "");
+            const text = (el.innerText || el.value || "").substring(0, 20).replace(/\n/g, "").trim();
             addLog('Action', `[Click] ${label}${text ? ` "${text}"` : ""}`);
         }, true);
 
@@ -66,8 +87,6 @@
     }
 
     // SPA ナビゲーションの監視
-    // 補足: history.pushState を上書きしているため、互換性の問題が出ないよう
-    // 元の関数を保持して apply すること。
     function monitorHistory() {
         const originalPushState = history.pushState;
         history.pushState = function (...args) {
@@ -93,7 +112,7 @@
             const aria = target.getAttribute('aria-label') || target.getAttribute('role');
             if (aria) return `${target.tagName.toLowerCase()}[${aria}]`;
 
-            if (target.id) return `#${target.id}`;
+            if (target.id && !target.id.includes('__')) return `#${target.id}`;
 
             let sel = target.tagName.toLowerCase();
             if (target.className && typeof target.className === 'string') {
@@ -103,13 +122,13 @@
             return sel;
         };
 
-        // 親要素のコンテキスト（IDやTestIDを持つ直近の親）を探す
+        // 親要素のコンテキスト
         const getParentLabel = (target) => {
             let p = target.parentElement;
             while (p && p !== document.body) {
                 const pTestId = p.getAttribute('data-testid') || p.getAttribute('data-cy');
                 if (pTestId) return `[testid="${pTestId}"]`;
-                if (p.id && !p.id.includes('__')) return `#${p.id}`; // 自動生成っぽくないIDを優先
+                if (p.id && !p.id.includes('__')) return `#${p.id}`;
                 p = p.parentElement;
             }
             return "";
@@ -121,9 +140,7 @@
         return parent ? `${parent} > ${base}` : base;
     }
 
-    // ネットワーク呼び出しの監視 (fetch / XMLHttpRequest)
-    // NOTE: ここでラップするとページの挙動に影響する可能性があるため、
-    // エラー時にのみログするなど非侵襲を心がける。
+    // ネットワーク呼び出しの監視
     function monitorNetwork() {
         const originalFetch = window.fetch;
         window.fetch = async function (...args) {
@@ -135,7 +152,14 @@
                 }
                 return response;
             } catch (error) {
-                addLog('Network', `[Failed] Fetch Error`);
+                // エラーの詳細化
+                let msg = "[Failed] ";
+                if (!navigator.onLine) msg += "Offline/Network Down";
+                else if (error.name === 'AbortError') msg += "Request Aborted";
+                else if (error.message.includes('CORS')) msg += "CORS Policy Blocked";
+                else msg += error.message || "Fetch Error";
+
+                addLog('Network', `[ERR] ${msg}`);
                 throw error;
             }
         };
@@ -143,7 +167,6 @@
         const originalOpen = XMLHttpRequest.prototype.open;
         const originalSend = XMLHttpRequest.prototype.send;
         XMLHttpRequest.prototype.open = function (method, url) {
-            // 内部プロパティに URL を保持（デバッグ用途）
             this._targetUrl = url;
             return originalOpen.apply(this, arguments);
         };
@@ -153,43 +176,56 @@
                     addLog('Network', `[${this.status}] ${this._targetUrl}`);
                 }
             });
+            this.addEventListener('error', function () {
+                addLog('Network', `[ERR] XHR Network Error on ${this._targetUrl}`);
+            });
             return originalSend.apply(this, arguments);
         };
     }
 
-    // console.error をラップして内部に記録する
-    // 重要: originalConsoleError をそのまま呼ぶとページ側で再捕捉され、
-    // 再帰的にこのハンドラが呼ばれるケースがあるため注意（isCapturingLog で防止）。
-    console.error = function (...args) {
-        if (isCapturingLog) return;
-        isCapturingLog = true;
+    // エラーハンドラの登録 (window.onerror / unhandledrejection)
+    function monitorErrors() {
+        window.addEventListener('error', (event) => {
+            const msg = event.error ? event.error.message : event.message;
+            addLog('Console', `[Uncaught] ${msg}`);
+        });
 
-        try {
-            // ページの挙動を壊さない目的で、ここでは originalConsoleWarn にフォールバックして出力する。
-            // 開発時は originalConsoleError を直接呼ぶオプションを検討して良い。
-            originalConsoleWarn.apply(console, ["[Captured Error]", ...args]);
+        window.addEventListener('unhandledrejection', (event) => {
+            const msg = event.reason ? (event.reason.message || String(event.reason)) : 'Promise Rejected';
+            addLog('Console', `[Promise] ${msg}`);
+        });
 
-            const message = args.map(a => {
-                if (typeof a === 'object' && a !== null) {
-                    if (a instanceof Error) return `Error: ${a.message}`;
-                    try { return JSON.stringify(a); } catch (e) { return '[Obj]'; }
+        // console.error と console.warn をラップ
+        const wrapLog = (methodName, prefix) => {
+            const original = console[methodName];
+            console[methodName] = function (...args) {
+                if (isCapturingLog) return;
+                isCapturingLog = true;
+                try {
+                    const message = args.map(a => {
+                        if (typeof a === 'object' && a !== null) {
+                            if (a instanceof Error) return `Error: ${a.message}`;
+                            try { return JSON.stringify(a); } catch (e) { return '[Obj]'; }
+                        }
+                        return String(a);
+                    }).join(' ');
+                    addLog('Console', message);
+                } catch (e) {
+                } finally {
+                    isCapturingLog = false;
                 }
-                return String(a);
-            }).join(' ');
+            };
+        };
 
-            addLog('Console', message);
+        wrapLog('error', 'Error');
+        wrapLog('warn', 'Warn');
+    }
 
-        } catch (e) {
-            // ログ処理中の失敗はここで握りつぶす（二次障害防止）
-        } finally {
-            isCapturingLog = false;
-        }
-    };
-
-    // 監視を開始する（明示的に呼ぶことでユニットテスト時に抑止可能）
+    // 監視を開始する
     monitorUserActions();
     monitorHistory();
     monitorNetwork();
+    monitorErrors();
 
     // ページ外からのデータ要求へ応答するためのハンドラ
     // ここではページ内スナップショット（ログ・ストレージ・フォーム）を返す。

@@ -30,8 +30,12 @@
       You can track a series of events like "Registered on Page A and moved to Page B, then an error occurred."
     </div>
 
-    <h2>2. Understanding the Logs (Color Coding)</h2>
-    <p>The chronological logs in the right panel are color-coded by information type.</p>
+    <h2>2. Understanding the Logs</h2>
+    <p>The logs in the right panel use <strong>Visual Hierarchy</strong> to help you spot issues quickly.</p>
+    <ul>
+      <li><strong>Automatic Layout:</strong> If there are many logs, the view switches to a single-column layout for better readability.</li>
+      <li><strong>Aggregation:</strong> Repeated identical actions (e.g., clicking the same button) are grouped together as <code>(x5)</code>.</li>
+    </ul>
   </div>
 
   <div lang="ja">
@@ -54,53 +58,57 @@
       「Aページで登録してBページに遷移したらエラーが出た」という一連の流れを追うことができます。
     </div>
 
-    <h2>2. ログの見方（色分け）</h2>
-    <p>右パネルの時系列ログは、情報の種類によって色分けされています。</p>
+    <h2>2. ログの見方（視覚的優先度）</h2>
+    <p>右パネルのログは、重要な情報をすぐに見つけられるよう整理されています。</p>
+    <ul>
+      <li><strong>自動レイアウト:</strong> ログの量が多い場合、読みやすさを優先して自動的に「1カラム（全幅）」表示に切り替わります。</li>
+      <li><strong>操作の集約:</strong> 同じボタンを連打するなど、同一の操作が続いた場合は <code>(x5)</code> のように1行にまとめて表示されます。</li>
+    </ul>
   </div>
 
   <table lang="en">
     <tr>
-      <th>Color</th>
+      <th>Icon / Color</th>
       <th>Type</th>
       <th>Description</th>
     </tr>
     <tr>
-      <td class="log-act">■ Light Blue (Action)</td>
+      <td class="log-act">🖱️ Light Blue</td>
       <td>User Actions</td>
-      <td>History of your actions like "Clicked a button" or "Entered text".<br>Used to verify reproduction steps.</td>
+      <td>History of "Clicked" or "Entered". (Last 40 events)</td>
     </tr>
     <tr>
-      <td class="log-net">■ Orange (Network)</td>
-      <td>Network Errors</td>
-      <td>Recorded when API calls fail (e.g., 404, 500 errors).<br>Major causes of system issues.</td>
+      <td class="log-net">📡 / ⚠️ Orange</td>
+      <td>Network / Warn</td>
+      <td>API failures or console warnings. Check for early signs of trouble.</td>
     </tr>
     <tr>
-      <td class="log-err">■ Red (Error)</td>
+      <td class="log-err">🚫 Red</td>
       <td>System Errors</td>
-      <td>JavaScript program errors. Crucial clues for developers to fix bugs.</td>
+      <td><strong>Critical!</strong> Includes unhandled exceptions and console errors.</td>
     </tr>
   </table>
 
   <table lang="ja">
     <tr>
-      <th>色</th>
+      <th>アイコン / 色</th>
       <th>種類</th>
       <th>説明</th>
     </tr>
     <tr>
-      <td class="log-act">■ 水色 (Action)</td>
+      <td class="log-act">🖱️ 水色</td>
       <td>ユーザー操作</td>
-      <td>「ボタンをクリックした」「文字を入力した」というあなたの操作履歴です。<br>再現手順を確認するのに使います。</td>
+      <td>「クリック」「入力」などの履歴です。直近40件が保持されています。</td>
     </tr>
     <tr>
-      <td class="log-net">■ 橙色 (Network)</td>
-      <td>通信エラー</td>
-      <td>API通信に失敗した場合（404, 500エラーなど）に記録されます。<br>システム不具合の主要な原因です。</td>
+      <td class="log-net">📡 / ⚠️ 橙色</td>
+      <td>通信 / 警告</td>
+      <td>API通信の失敗や、プログラムからの警告（Warn）です。</td>
     </tr>
     <tr>
-      <td class="log-err">■ 赤色 (Error)</td>
+      <td class="log-err">🚫 赤色</td>
       <td>システムエラー</td>
-      <td>JavaScriptのプログラムエラーです。開発者にとって最も重要な修正の手掛かりになります。</td>
+      <td><strong>最優先！</strong> 予期せぬクラッシュや致命的なエラーです。</td>
     </tr>
   </table>
 

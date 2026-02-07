@@ -40,197 +40,183 @@ class EvidenceRenderer {
         const s = this.styles;
         const L = this.LAYOUT;
 
-        // パネル幅の計算（スマホなどの狭い画面に対応するため、最低幅を保証）
-        const minPanelWidth = 300;
-        let panelWidth = (img.width / 2) - (L.PADDING * 1.5);
-        if (panelWidth < minPanelWidth) {
-            // 画像が狭すぎる場合は、パネル幅を画像幅全体に合わせる（シングルカラム化の準備）
-            // ※今回は簡易的に、幅計算の安全マージンだけ確保
-            panelWidth = Math.max(panelWidth, 100);
-        }
-
-        ctx.font = s.fontValue;
-
-        // --- 1. データの正規化と折り返し計算 ---
-
-        // 汎用ヘルパー: データを文字列配列に変換して折り返す
-        const processLines = (inputData, isObject = false) => {
+        // --- 1. データの正規化 ---
+        ctx.font = s.fontValue; // 重要: 測定前にフォントを設定
+        const processLines = (inputData, width, isObject = false) => {
             let lines = [];
             if (!inputData) return lines;
-
             if (isObject) {
-                // オブジェクト { key: val } の場合
                 Object.keys(inputData).forEach(k => {
                     const val = inputData[k] !== null ? inputData[k] : 'null';
-                    const raw = `${k}: ${val}`;
-                    lines.push(...this._wrapText(ctx, raw, panelWidth - 30));
+                    lines.push(...this._wrapText(ctx, `${k}: ${val}`, width));
                 });
             } else if (Array.isArray(inputData)) {
-                // 配列 ["text"] の場合
-                inputData.forEach(text => {
-                    lines.push(...this._wrapText(ctx, text, panelWidth - 30));
-                });
+                inputData.forEach(text => lines.push(...this._wrapText(ctx, text, width)));
             } else {
-                // 文字列の場合
-                lines.push(...this._wrapText(ctx, String(inputData), panelWidth - 30));
+                lines.push(...this._wrapText(ctx, String(inputData), width));
             }
             return lines;
         };
 
-        const urlLines = processLines(data.url);
-        const uaLines = processLines(data.userAgent);
-        const vpLines = processLines(data.viewport); // ★修正: Viewportも折り返し計算対象に
+        const timeline = data.errors || [];
 
-        // Inputデータが配列でもオブジェクトでも対応できるように修正
-        let inputLines = [];
-        if (Array.isArray(data.inputs)) {
-            inputLines = processLines(data.inputs);
-        } else if (typeof data.inputs === 'object') {
-            inputLines = processLines(data.inputs, true);
-        }
+        // --- 2. レイアウトの決定 (Intelligent Layout) ---
+        // ログの量（行数）を見積もって、2カラムで行けるか判断する
+        const estimatedLogLines = timeline.reduce((acc, item) => {
+            return acc + this._wrapText(ctx, item.message, (img.width / 2) - 60).length;
+        }, 0);
 
-        const storageLines = processLines(data.storage, true);
+        const isSingleColumn = (img.width < 700) || (estimatedLogLines > 15);
+        const panelWidth = isSingleColumn ? (img.width - L.PADDING * 2) : (img.width / 2) - (L.PADDING * 1.5);
 
-        // --- 2. 左パネル高さ計算 ---
-        const calcHeight = (lineArrays) => {
-            let h = 0;
-            lineArrays.forEach(lines => {
-                if (lines.length > 0) {
-                    h += L.LINE_HEIGHT; // ラベル分
-                    h += lines.length * L.LINE_HEIGHT; // 値分
-                    h += L.PANEL_GAP;
+        // --- 3. コンテンツ準備 ---
+        const urlLines = processLines(data.url, panelWidth - 30);
+        const uaLines = processLines(data.userAgent, panelWidth - 30);
+        const vpLines = processLines(data.viewport, panelWidth - 30);
+        const storageLines = processLines(data.storage, panelWidth - 30, true);
+        const inputLines = processLines(data.inputs, panelWidth - 30);
+
+        const rightLogLines = [];
+        timeline.forEach(item => {
+            let icon = "🌐";
+            let color = s.textMain;
+            if (item.type === 'Console') {
+                if (item.message.includes('[Uncaught]') || item.message.includes('[Captured Error]')) {
+                    icon = "🚫";
+                    color = s.error;
+                } else if (item.message.includes('[Captured Warn]')) {
+                    icon = "⚠️";
+                    color = s.logNetwork;
+                } else {
+                    icon = "💻";
                 }
+            } else if (item.type === 'Network') {
+                icon = "📡";
+                color = s.logNetwork;
+            } else if (item.type === 'Action') {
+                icon = "🖱️";
+                color = s.logAction;
+            }
+
+            const time = item.time ? new Date(item.time).toLocaleTimeString([], { hour12: false }) : "";
+            const prefix = `${icon} ${time} `;
+
+            // 重要: プレフィックスの幅を測定し、残りの幅でコンテンツを折り返す
+            const prefixWidth = ctx.measureText(prefix).width;
+            const contentWidth = panelWidth - L.PANEL_PADDING_X * 2 - prefixWidth - 10;
+            const wrapped = this._wrapText(ctx, item.message, contentWidth);
+
+            rightLogLines.push({ lines: wrapped, type: item.type, color, prefix, indentWidth: prefixWidth });
+        });
+
+        // --- 4. 高さ計算 ---
+        const calcPanelHeight = (lineArrays) => {
+            let h = L.PANEL_PADDING_Y * 2;
+            lineArrays.forEach(lines => {
+                if (lines.length > 0) h += (lines.length + 1) * L.LINE_HEIGHT + L.PANEL_GAP;
             });
-            return h;
+            return Math.max(h, L.MIN_PANEL_HEIGHT);
         };
 
-        let leftHeight = calcHeight([urlLines, uaLines, vpLines, storageLines, inputLines]) + L.FOOTER_EXTRA;
+        const leftHeight = calcPanelHeight([urlLines, uaLines, vpLines, storageLines, inputLines]);
+        const rightHeight = L.PANEL_PADDING_Y * 2 + 30 + rightLogLines.reduce((acc, item) => acc + (item.lines.length * L.LINE_HEIGHT) + 8, 0);
 
-        // --- 3. 右パネル高さ計算 ---
-        let rightHeight = L.FOOTER_EXTRA;
-        const timeline = data.errors || [];
-        const rightLogLines = []; // 描画用に計算結果を保持
-
-        if (timeline.length > 0) {
-            timeline.forEach(item => {
-                const prefixMap = { 'Console': "[ERR] ", 'Network': "[NET] ", 'Action': "[ACT] " };
-                const prefix = prefixMap[item.type] || "";
-                const time = item.time ? new Date(item.time).toLocaleTimeString([], { hour12: false }) : "";
-                const fullText = `${prefix}${time} ${item.message}`;
-
-                const lines = this._wrapText(ctx, fullText, panelWidth - 30);
-                // 色分け描画用に情報を保存
-                rightLogLines.push({ lines, type: item.type });
-
-                rightHeight += (lines.length * L.LINE_HEIGHT) + 8; // +8はログ間のマージン
-            });
+        let footerContentHeight;
+        if (isSingleColumn) {
+            footerContentHeight = leftHeight + L.PADDING + rightHeight;
         } else {
-            rightHeight += 60;
+            footerContentHeight = Math.max(leftHeight, rightHeight);
         }
 
-        const maxPanelHeight = Math.max(leftHeight, rightHeight, L.MIN_PANEL_HEIGHT);
-        const footerHeight = L.HEADER_HEIGHT + maxPanelHeight + L.PADDING;
+        const footerHeight = L.HEADER_HEIGHT + footerContentHeight + L.PADDING;
 
-        // --- 4. 描画開始 ---
+        // --- 5. 描画 ---
         canvas.width = img.width;
         canvas.height = img.height + footerHeight;
-
         ctx.drawImage(img, 0, 0);
 
-        // フッター背景
         ctx.fillStyle = s.bg;
         ctx.fillRect(0, img.height, canvas.width, footerHeight);
 
         let y = img.height + L.PADDING;
 
-        // --- ヘッダー（スマホ対応修正） ---
+        // ヘッダー
         ctx.fillStyle = s.accent;
         ctx.fillRect(L.PADDING, y, L.ACCENT_BAR_WIDTH, L.ACCENT_BAR_HEIGHT);
-
         ctx.fillStyle = s.textMain;
         ctx.textBaseline = "top";
-
-        // タイトルのフォントサイズ調整
-        const titleText = chrome.i18n.getMessage("reportTitle");
-        let titleSize = 24;
-        if (img.width < 500) titleSize = 18; // スマホ幅なら小さく
-        ctx.font = `bold ${titleSize}px ${s.fontMain.split(' ').pop()}`;
+        const titleText = chrome.i18n.getMessage("reportTitle") || "Evidence Stamp";
+        ctx.font = `bold ${img.width < 500 ? 18 : 24}px ${s.fontMain.split(' ').pop()}`;
         ctx.fillText(titleText, L.PADDING + 15, y);
 
-        // 日付の衝突回避
-        const dateStr = new Date().toLocaleString();
-        const dateFontCode = getComputedStyle(document.body).getPropertyValue('--cv-font-code') || 'monospace';
-        ctx.font = "18px " + dateFontCode.trim();
-        const dateWidth = ctx.measureText(dateStr).width;
-
-        // 画面幅が十分ある場合のみ日付を表示
         if (img.width > 500) {
+            ctx.font = "16px monospace";
             ctx.fillStyle = s.textSub;
-            ctx.fillText(dateStr, canvas.width - L.PADDING - dateWidth, y + 4);
+            const dateStr = new Date().toLocaleString();
+            ctx.fillText(dateStr, canvas.width - L.PADDING - ctx.measureText(dateStr).width, y + 4);
         }
 
         y += 50;
+        const startY = y;
 
-        // --- 左パネル描画 ---
-        this._drawPanelBox(ctx, L.PADDING, y, panelWidth, maxPanelHeight);
-
+        // 左パネル
+        this._drawPanelBox(ctx, L.PADDING, y, panelWidth, leftHeight);
         let ly = y + L.PANEL_PADDING_Y;
         let lx = L.PADDING + L.PANEL_PADDING_X;
 
-        // ヘルパー関数で順次描画
         const drawSection = (label, lines) => {
             if (lines.length === 0) return;
             this._drawLabelValue(ctx, label, lines, lx, ly, L.LINE_HEIGHT);
             ly += (lines.length + 1) * L.LINE_HEIGHT + L.PANEL_GAP;
         };
 
-        drawSection(chrome.i18n.getMessage("labelUrl"), urlLines);
-        drawSection(chrome.i18n.getMessage("labelUA"), uaLines);
-        drawSection(chrome.i18n.getMessage("labelViewport"), vpLines);
-        drawSection(chrome.i18n.getMessage("labelStorage"), storageLines);
-        drawSection(chrome.i18n.getMessage("labelInputs"), inputLines);
+        drawSection(chrome.i18n.getMessage("labelUrl") || "URL", urlLines);
+        drawSection(chrome.i18n.getMessage("labelUA") || "User Agent", uaLines);
+        drawSection(chrome.i18n.getMessage("labelViewport") || "Viewport", vpLines);
+        drawSection(chrome.i18n.getMessage("labelStorage") || "Storage", storageLines);
+        drawSection(chrome.i18n.getMessage("labelInputs") || "Inputs", inputLines);
 
-        // --- 右パネル描画 ---
-        const rightX = L.PADDING + panelWidth + L.PADDING;
-        // 右パネルが画面外にはみ出る場合は描画位置調整（超狭い画面対策）
-        const safeRightX = (rightX + panelWidth > canvas.width) ? (canvas.width - panelWidth - L.PADDING) : rightX;
+        // 描画位置の更新
+        if (isSingleColumn) {
+            y += leftHeight + L.PADDING;
+        } else {
+            lx = L.PADDING + panelWidth + L.PADDING;
+        }
 
-        this._drawPanelBox(ctx, safeRightX, y, panelWidth, maxPanelHeight);
+        // 右パネル
+        this._drawPanelBox(ctx, lx, isSingleColumn ? y : startY, panelWidth, rightHeight);
+        let ry = (isSingleColumn ? y : startY) + L.PANEL_PADDING_Y;
+        let rx = lx + L.PANEL_PADDING_X;
 
-        let ry = y + L.PANEL_PADDING_Y;
-        let rx = safeRightX + L.PANEL_PADDING_X;
         const hasError = timeline.some(t => t.type === 'Console' || t.type === 'Network');
-
         ctx.font = "bold 16px sans-serif";
         if (hasError) {
             ctx.fillStyle = s.error;
-            ctx.fillText(chrome.i18n.getMessage("issuesDetected", [String(timeline.length)]), rx, ry);
+            ctx.fillText(chrome.i18n.getMessage("issuesDetected", [String(timeline.length)]) || `Issues: ${timeline.length}`, rx, ry);
         } else {
             ctx.fillStyle = s.success;
-            ctx.fillText(chrome.i18n.getMessage("noErrors"), rx, ry);
+            ctx.fillText(chrome.i18n.getMessage("noErrors") || "No Errors", rx, ry);
         }
         ry += 30;
 
         ctx.font = s.fontValue;
-
         if (rightLogLines.length > 0) {
             rightLogLines.forEach(item => {
-                let logColor = s.textMain;
-                if (item.type === 'Console') logColor = s.error;
-                else if (item.type === 'Network') logColor = s.logNetwork;
-                else if (item.type === 'Action') logColor = s.logAction;
-
-                ctx.fillStyle = logColor;
-
-                item.lines.forEach(line => {
-                    ctx.fillText(line, rx, ry);
+                ctx.fillStyle = item.color;
+                // 最初の一行にプレフィックス（アイコン＋時間）を表示
+                ctx.fillText(item.prefix + item.lines[0], rx, ry);
+                ry += L.LINE_HEIGHT;
+                // 二行目以降はインデントして表示
+                const indent = item.indentWidth;
+                for (let i = 1; i < item.lines.length; i++) {
+                    ctx.fillText(item.lines[i], rx + indent, ry);
                     ry += L.LINE_HEIGHT;
-                });
+                }
                 ry += 8;
             });
         } else {
             ctx.fillStyle = "#666";
-            ctx.fillText(chrome.i18n.getMessage("noLogs"), rx, ry);
+            ctx.fillText(chrome.i18n.getMessage("noLogs") || "No Logs", rx, ry);
         }
 
         return canvas.toDataURL("image/png");
@@ -258,25 +244,33 @@ class EvidenceRenderer {
     }
 
     _wrapText(ctx, text, maxWidth) {
-        // null/undefined対策
-        if (text === null || text === undefined) return [""];
-
+        if (!text) return [""];
         const str = String(text);
-        const words = str.split(''); // 日本語も考慮して1文字ずつ分割
-        let lines = [];
-        let currentLine = words[0] || "";
 
-        for (let i = 1; i < words.length; i++) {
-            const word = words[i];
-            const width = ctx.measureText(currentLine + word).width;
-            if (width < maxWidth) {
-                currentLine += word;
-            } else {
+        // maxWidth が異常な値の場合のセーフティ
+        const safeMaxWidth = Math.max(maxWidth, 50);
+
+        const chars = str.split('');
+        let lines = [];
+        let currentLine = "";
+
+        for (let i = 0; i < chars.length; i++) {
+            const char = chars[i];
+            const testLine = currentLine + char;
+            const metrics = ctx.measureText(testLine);
+
+            if (metrics.width > safeMaxWidth && currentLine !== "") {
                 lines.push(currentLine);
-                currentLine = word;
+                currentLine = char;
+            } else {
+                currentLine = testLine;
             }
         }
-        lines.push(currentLine);
-        return lines;
+
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+
+        return lines.length > 0 ? lines : [""];
     }
 }
